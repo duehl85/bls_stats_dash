@@ -1,0 +1,40 @@
+name: Monthly BLS Data Update
+
+on:
+  schedule:
+    # Runs at 6 AM UTC on the first Saturday of each month
+    # Assumes BLS data is released on the first Friday of the month.
+    - cron: '0 6 1-7 * 6'
+  workflow_dispatch:
+
+jobs:
+  update_data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm Timing
+        run: echo "This workflow is triggered on the first Saturday of the month, following the first Friday's data release."
+
+      - name: Check out the repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install requests pandas
+
+      - name: Run BLS update script
+        env:
+          BLS_API_KEY: ${{ secrets.BLS_API_KEY }}
+        run: python bls_data_script.py
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add bls_data.csv
+          git commit -m "Update BLS data" || echo "No changes to commit."
+          git push
