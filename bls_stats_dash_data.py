@@ -8,7 +8,6 @@ BLS_API_KEY = os.environ.get('BLS_API_KEY')
 
 series_ids = {
     "Total Non-Farm Workers": "CEU0000000001",
-    "Unemployment Rates": "LNS14000000",
     "Average Hourly Earnings": "CES0500000003",
     "National Unemployment Rate": "LNS14000000",
     "Men Unemployment Rate (20+)": "LNS14000006",
