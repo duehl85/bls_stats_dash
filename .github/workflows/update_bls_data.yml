@@ -2,10 +2,11 @@ name: Monthly BLS Data Update
 
 on:
   schedule:
-    # Runs at 6 AM UTC on the first Saturday of each month
-    # Assumes BLS data is released on the first Friday of the month.
     - cron: '0 6 1-7 * 6'
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   update_data:
