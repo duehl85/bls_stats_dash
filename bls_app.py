@@ -17,10 +17,9 @@ def load_data(filename="bls_data.csv"):
     df = pd.read_csv(filename, parse_dates=["date"])
     return df
 
-
 df = load_data()
 
-# The given series_ids mapping (adjusted to reflect the final selected series)
+# Series_ids mapping (adjusted to reflect the final selected series)
 series_ids = {
     "Total Non-Farm Workers": "CEU0000000001",
     "Average Hourly Earnings": "CES0500000003",
@@ -36,7 +35,7 @@ series_ids = {
     "Discouraged Workers": "LNS15026645"
 }
 
-# Categorize % based statistics
+# Categorize metrics:
 percentage_metrics = [
     "National Unemployment Rate",
     "Men Unemployment Rate (20+)",
@@ -49,7 +48,7 @@ percentage_metrics = [
     "Labor Force Participation Rate"
 ]
 
-# Categorize count based statistics
+# Count-based and earnings metrics
 count_metrics = ["Total Non-Farm Workers"]
 earnings_metric = "Average Hourly Earnings"
 discouraged_metric = "Discouraged Workers"
@@ -84,26 +83,25 @@ st.sidebar.markdown(
 )
 
 
-# Main Page
+# Main Page Content
 
 st.title("U.S. Labor Market Dashboard")
 
 st.markdown(
     """
     This dashboard provides an interactive view of key U.S. labor market statistics from the BLS.
-
-    **Charts:**
+    
+    **Features:**
     - **Main Chart:** Percentage-based metrics (unemployment rates, participation rates, etc.).
     - **Additional Charts:** Total Non-Farm Workers, Average Hourly Earnings, and Discouraged Workers displayed separately.
-
-    **New Features:**
-    - A date range slider to filter all charts and metrics.
-    - Statistical summaries of the selected metrics (average, max, min).
-    - A correlation matrix between the selected metrics.
+    - **Date Range Slider:** Filter all charts and summaries based on a selected date range.
+    - **Statistical Summaries:** View average, maximum, minimum, and other statistics for selected metrics within the chosen date range.
     """
 )
 
+
 # Date Range Selection
+
 min_date = pivot_df.index.min()
 max_date = pivot_df.index.max()
 
@@ -123,6 +121,7 @@ filtered_pivot_df = pivot_df.loc[(pivot_df.index >= start_date) & (pivot_df.inde
 
 
 # Main Chart: Percentage Metrics
+
 st.header("Percentage-Based Metrics")
 if selected_percentages:
     # Check that these columns exist in filtered_pivot_df
@@ -155,7 +154,10 @@ else:
 
 
 # Additional Charts
+# Initialize a list to keep track of all selected metrics for statistical summaries
+all_selected_metrics = selected_percentages.copy()
 
+# Total Non-Farm Workers
 if display_non_farm and "Total Non-Farm Workers" in filtered_pivot_df.columns:
     st.header("Total Non-Farm Workers")
     nonfarm_df = filtered_pivot_df[["Total Non-Farm Workers"]].dropna()
@@ -173,9 +175,11 @@ if display_non_farm and "Total Non-Farm Workers" in filtered_pivot_df.columns:
 
         st.altair_chart(nonfarm_chart, use_container_width=True)
         st.markdown("This metric represents the total number of non-farm payroll jobs (in thousands).")
+        all_selected_metrics.append("Total Non-Farm Workers")
     else:
         st.info("No data available for Total Non-Farm Workers in the selected date range.")
 
+# Average Hourly Earnings
 if display_earnings and earnings_metric in filtered_pivot_df.columns:
     st.header("Average Hourly Earnings")
     earnings_df = filtered_pivot_df[[earnings_metric]].dropna()
@@ -193,9 +197,11 @@ if display_earnings and earnings_metric in filtered_pivot_df.columns:
 
         st.altair_chart(earnings_chart, use_container_width=True)
         st.markdown("Average hourly earnings provides insight into wage trends over time.")
+        all_selected_metrics.append(earnings_metric)
     else:
         st.info("No data available for Average Hourly Earnings in the selected date range.")
 
+# Discouraged Workers
 if display_discouraged and discouraged_metric in filtered_pivot_df.columns:
     st.header("Discouraged Workers")
     dw_df = filtered_pivot_df[[discouraged_metric]].dropna()
@@ -212,76 +218,25 @@ if display_discouraged and discouraged_metric in filtered_pivot_df.columns:
         ).interactive()
 
         st.altair_chart(dw_chart, use_container_width=True)
-        st.markdown(
-            "Discouraged workers are those not currently seeking employment due to the belief no jobs are available.")
+        st.markdown("Discouraged workers are those not currently seeking employment due to the belief no jobs are available.")
+        all_selected_metrics.append(discouraged_metric)
     else:
         st.info("No data available for Discouraged Workers in the selected date range.")
 
 
-# Combine selected metrics for summaries and correlation
-
-all_selected_metrics = selected_percentages.copy()
-if display_non_farm and "Total Non-Farm Workers" in filtered_pivot_df.columns:
-    all_selected_metrics.append("Total Non-Farm Workers")
-if display_earnings and earnings_metric in filtered_pivot_df.columns:
-    all_selected_metrics.append(earnings_metric)
-if display_discouraged and discouraged_metric in filtered_pivot_df.columns:
-    all_selected_metrics.append(discouraged_metric)
-
-# Filter metrics to those actually in the columns
-all_selected_metrics = [m for m in all_selected_metrics if m in filtered_pivot_df.columns]
+# Statistical Summaries
 
 if all_selected_metrics:
-    selected_data = filtered_pivot_df[all_selected_metrics].dropna(how='all', axis=0)
-
-   
-    # Statistical Summaries
     st.write("---")
     st.header("Statistical Summaries of Selected Metrics")
+
+    selected_data = filtered_pivot_df[all_selected_metrics].dropna(how='all', axis=0)
 
     if not selected_data.empty:
         stats = selected_data.describe().T
         st.dataframe(stats, use_container_width=True)
     else:
         st.info("No data available for statistical summaries in the selected date range.")
-
-
-    # Correlation Matrix
-    
-    if len(all_selected_metrics) > 1:
-        st.write("---")
-        st.header("Correlation Matrix")
-
-        corr_df = selected_data.corr()
-        # Convert to a heatmap
-        corr_long = corr_df.reset_index().melt("index")
-        corr_long.columns = ["Metric_X", "Metric_Y", "Correlation"]
-
-        # Create a correlation heatmap
-        corr_chart = alt.Chart(corr_long).mark_rect().encode(
-            x=alt.X("Metric_X:N", sort=all_selected_metrics, title=""),
-            y=alt.Y("Metric_Y:N", sort=all_selected_metrics, title=""),
-            color=alt.Color("Correlation:Q", scale=alt.Scale(scheme="blueorange", domain=(-1, 1))),
-            tooltip=["Metric_X:N", "Metric_Y:N", alt.Tooltip("Correlation:Q", format=".2f")]
-        ).properties(
-            width=400,
-            height=400,
-            title="Correlation Between Selected Metrics"
-        )
-
-        # Add text labels
-        text = corr_chart.mark_text(size=12).encode(
-            text=alt.Text("Correlation:Q", format=".2f"),
-            color=alt.condition(
-                "datum.Correlation > 0.5 || datum.Correlation < -0.5",
-                alt.value("white"),
-                alt.value("black")
-            )
-        )
-
-        st.altair_chart(corr_chart + text, use_container_width=False)
-    else:
-        st.write("Select more than one metric to view a correlation matrix.")
 else:
     st.write("---")
-    st.info("No metrics selected. Please select metrics to view statistical summaries and correlation.")
+    st.info("No metrics selected. Please select metrics to view statistical summaries.")
