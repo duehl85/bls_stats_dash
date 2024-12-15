@@ -1,16 +1,12 @@
 import requests
 import pandas as pd
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 
-# Read BLS API key from environment (set as a GitHub secret)
+# Read BLS API key from environment (set as a GitHub secret in Actions)
 BLS_API_KEY = os.environ.get('BLS_API_KEY')
 
-# create dictionary of the series that will be utilized
 series_ids = {
-    "Total Non-Farm Workers": "CEU0000000001",
-    "Unemployment Rates": "LNS14000000",
-    "Average Hourly Earnings": "CES0500000003",
     "National Unemployment Rate": "LNS14000000",
     "Men Unemployment Rate (20+)": "LNS14000006",
     "Women Unemployment Rate (20+)": "LNS14000007",
@@ -51,7 +47,7 @@ def bls_response_to_df(json_data, series_map):
         name = [k for k, v in series_map.items() if v == series_id]
         name = name[0] if name else series_id
         for entry in s['data']:
-            period = entry['period']  # e.g. 'M11'
+            period = entry['period']  # e.g., 'M01'
             if period.startswith('M'):
                 year = entry['year']
                 month_str = period[1:]
@@ -66,7 +62,7 @@ def bls_response_to_df(json_data, series_map):
 
 
 def get_next_month(date):
-    """Given a datetime (always first of month in our case), return the datetime for the next month."""
+    """Given a datetime (always first of month), return the datetime for the next month."""
     year = date.year
     month = date.month
     next_month = month + 1
@@ -79,19 +75,22 @@ def get_next_month(date):
 
 if __name__ == "__main__":
     if not os.path.exists(CSV_FILENAME):
-        # Initial run: Fetch data from November 2023 to November 2024
-        # We'll fetch entire years 2023 and 2024 and then filter.
-        initial_data = fetch_bls_data(list(series_ids.values()), 2023, 2024, BLS_API_KEY)
+        # Initial run: Fetch data starting from January 2022 up to the current month/year.
+        start_year = 2022
+        current_year = datetime.now().year
+        # Fetch data from 2022 through the current year
+        initial_data = fetch_bls_data(list(series_ids.values()), start_year, current_year, BLS_API_KEY)
         df = bls_response_to_df(initial_data, series_ids)
 
-        start_date = datetime(2023, 11, 1)
-        end_date = datetime(2024, 11, 1)
+        # Optionally, filter data from January 2022 to the current month:
+        start_date = datetime(2022, 1, 1)
+        end_date = datetime(datetime.now().year, datetime.now().month, 1)
         df = df[(df['date'] >= start_date) & (df['date'] <= end_date)]
 
         df.to_csv(CSV_FILENAME, index=False)
-        print("Initial data fetched and saved.")
+        print("Initial data fetched (from 2022) and saved.")
     else:
-        # Subsequent runs: Fetch the next month's data after the last recorded date
+        # Subsequent runs: Fetch the next month's data after the last recorded date.
         existing_df = pd.read_csv(CSV_FILENAME, parse_dates=['date'])
         latest_date = existing_df['date'].max()  # last month in the CSV
 
@@ -100,7 +99,7 @@ if __name__ == "__main__":
         start_year = next_month_date.year
         end_year = next_month_date.year
 
-        # Fetch the data for that year
+        # Fetch new data for that year
         new_data_json = fetch_bls_data(list(series_ids.values()), start_year, end_year, BLS_API_KEY)
         new_df = bls_response_to_df(new_data_json, series_ids)
 
