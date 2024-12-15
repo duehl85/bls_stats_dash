@@ -29,7 +29,7 @@ jobs:
       - name: Run BLS update script
         env:
           BLS_API_KEY: ${{ secrets.BLS_API_KEY }}
-        run: python bls_data_script.py
+        run: python bls_stats_dash_data.py
 
       - name: Commit and push changes
         run: |
